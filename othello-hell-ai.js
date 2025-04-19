@@ -20,10 +20,10 @@ function startGame(first) {
 
 function initBoard() {
   board = Array(size).fill().map(() => Array(size).fill(0));
-  board[3][3] = -1;
-  board[4][4] = -1;
-  board[3][4] = 1;
-  board[4][3] = 1;
+  board[3][3] = 1;
+  board[4][4] = 1;
+  board[3][4] = -1;
+  board[4][3] = -1;
 }
 
 function drawBoard() {
