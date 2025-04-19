@@ -28,6 +28,12 @@ function initBoard() {
 
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const moves = getValidMoves(board, currentPlayer);
+  for (let [x, y] of moves) {
+    ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+    ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+  }
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       ctx.strokeStyle = "#000";
