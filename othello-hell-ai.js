@@ -246,6 +246,27 @@ document.getElementById('board').addEventListener('click', function(event) {
     setTimeout(aiMove, 200);
   }
 });
+document.getElementById('board').addEventListener('touchstart', function(event) {
+  if (gameState.currentPlayer !== gameState.playerColor) return;
+
+  const canvas = event.target;
+  const rect = canvas.getBoundingClientRect();
+  const touch = event.touches[0];
+  const size = canvas.width / 8;
+  const x = Math.floor((touch.clientX - rect.left) / size);
+  const y = Math.floor((touch.clientY - rect.top) / size);
+
+  const legalMoves = getLegalMoves(gameState.board, gameState.playerColor);
+  const clicked = legalMoves.find(m => m.x === x && m.y === y);
+  if (clicked) {
+    applyMove(gameState.board, clicked, gameState.playerColor);
+    gameState.currentPlayer = gameState.aiColor;
+    renderBoard();
+    updateScores();
+    checkGameOver();
+    setTimeout(aiMove, 200);
+  }
+});
 
 function renderBoard() {
   const canvas = document.getElementById('board');
