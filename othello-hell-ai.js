@@ -1,279 +1,257 @@
 
-const BOARD_SIZE = 8;
+// Othello 地獄級 AI with undo + 強化版 minimax
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const size = 8;
+const tileSize = canvas.width / size;
+
 let board = [];
-let currentPlayer = 1; // 1: black, -1: white
-let playerColor = 1;
-let aiPlayer = -1;
-let moveHistory = [];
 let aiLastMove = null;
+let currentPlayer = 1;
+let aiPlayer = -1;
+let history = [];
 
-const directions = [
-  [-1, -1], [-1, 0], [-1, 1],
-  [ 0, -1],          [ 0, 1],
-  [ 1, -1], [ 1, 0], [ 1, 1],
-];
-
-function initBoard() {
-  board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
-  board[3][3] = board[4][4] = -1;
-  board[3][4] = board[4][3] = 1;
-  moveHistory = [];
-  aiLastMove = null;
+function startGame(first) {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  aiPlayer = first === 'ai' ? 1 : -1;
+  currentPlayer = 1;
+  initBoard();
   drawBoard();
   updateScores();
-  if (currentPlayer === aiPlayer) {
-    setTimeout(aiMove, 200);
-  }
+  if (aiPlayer === currentPlayer) setTimeout(aiMove, 500);
+}
+
+function initBoard() {
+  board = Array(size).fill().map(() => Array(size).fill(0));
+  board[3][3] = 1;
+  board[4][4] = 1;
+  board[3][4] = -1;
+  board[4][3] = -1;
+  history = [];
 }
 
 function drawBoard() {
-  const canvas = document.getElementById("board");
-  const ctx = canvas.getContext("2d");
-  const size = canvas.width / BOARD_SIZE;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const validMoves = getValidMoves(currentPlayer);
-
-  // Draw valid move highlights
-  for (const { x, y } of validMoves) {
-    ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
-    ctx.fillRect(x * size, y * size, size, size);
+  const moves = getValidMoves(board, currentPlayer);
+  for (let [x, y] of moves) {
+    ctx.fillStyle = "rgba(255, 255, 0, 0.8)";
+    ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
   }
-
-  ctx.strokeStyle = "#000";
-  for (let i = 0; i <= BOARD_SIZE; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * size, 0);
-    ctx.lineTo(i * size, canvas.height);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, i * size);
-    ctx.lineTo(canvas.width, i * size);
-    ctx.stroke();
-  }
-
-  for (let y = 0; y < BOARD_SIZE; y++) {
-    for (let x = 0; x < BOARD_SIZE; x++) {
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      ctx.strokeStyle = "#000";
+      ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
       if (board[y][x] !== 0) {
         ctx.beginPath();
-        ctx.arc((x + 0.5) * size, (y + 0.5) * size, size / 2.5, 0, 2 * Math.PI);
+        ctx.arc(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2.5, 0, Math.PI * 2);
         ctx.fillStyle = board[y][x] === 1 ? "black" : "white";
         ctx.fill();
       }
     }
   }
-
   if (aiLastMove) {
     ctx.strokeStyle = "red";
     ctx.lineWidth = 3;
-    ctx.strokeRect(aiLastMove.x * size, aiLastMove.y * size, size, size);
+    ctx.strokeRect(aiLastMove[0] * tileSize, aiLastMove[1] * tileSize, tileSize, tileSize);
     ctx.lineWidth = 1;
   }
 }
 
-function updateScores() {
-  let black = 0, white = 0;
-  board.flat().forEach(cell => {
-    if (cell === 1) black++;
-    if (cell === -1) white++;
-  });
-  document.getElementById("black-score").innerText = `黑子: ${black}`;
-  document.getElementById("white-score").innerText = `白子: ${white}`;
-}
+canvas.addEventListener("click", (e) => {
+  if (currentPlayer !== aiPlayer) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / tileSize);
+    const y = Math.floor((e.clientY - rect.top) / tileSize);
+    if (isValidMove(board, x, y, currentPlayer)) {
+      history.push(JSON.parse(JSON.stringify(board)));
+      makeMove(board, x, y, currentPlayer);
+      endTurn();
+    }
+  }
+});
 
-function isValidMove(x, y, player) {
-  if (board[y][x] !== 0) return false;
-  for (const [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy, found = false;
-    while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === -player) {
+function isValidMove(bd, x, y, player) {
+  if (bd[y][x] !== 0) return false;
+  const directions = [
+    [0, 1],[1, 0],[0, -1],[-1, 0],
+    [1, 1],[-1, -1],[1, -1],[-1, 1]
+  ];
+  for (let [dx, dy] of directions) {
+    let nx = x + dx, ny = y + dy, count = 0;
+    while (nx >= 0 && nx < size && ny >= 0 && ny < size && bd[ny][nx] === -player) {
       nx += dx;
       ny += dy;
-      found = true;
+      count++;
     }
-    if (found && nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === player) {
+    if (count && nx >= 0 && nx < size && ny >= 0 && ny < size && bd[ny][nx] === player) {
       return true;
     }
   }
   return false;
 }
 
-function getValidMoves(player) {
-  const moves = [];
-  for (let y = 0; y < BOARD_SIZE; y++) {
-    for (let x = 0; x < BOARD_SIZE; x++) {
-      if (isValidMove(x, y, player)) {
-        moves.push({ x, y });
-      }
+function getValidMoves(bd, player) {
+  let moves = [];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (isValidMove(bd, x, y, player)) moves.push([x, y]);
     }
   }
   return moves;
 }
 
-function applyMove(x, y, player) {
-  const flipped = [];
-  board[y][x] = player;
-  for (const [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy, temp = [];
-    while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === -player) {
-      temp.push([nx, ny]);
+function makeMove(bd, x, y, player) {
+  const directions = [
+    [0, 1],[1, 0],[0, -1],[-1, 0],
+    [1, 1],[-1, -1],[1, -1],[-1, 1]
+  ];
+  bd[y][x] = player;
+  for (let [dx, dy] of directions) {
+    let nx = x + dx, ny = y + dy, toFlip = [];
+    while (nx >= 0 && nx < size && ny >= 0 && ny < size && bd[ny][nx] === -player) {
+      toFlip.push([nx, ny]);
       nx += dx;
       ny += dy;
     }
-    if (temp.length && nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board[ny][nx] === player) {
-      flipped.push(...temp);
+    if (toFlip.length && nx >= 0 && nx < size && ny >= 0 && ny < size && bd[ny][nx] === player) {
+      for (let [fx, fy] of toFlip) bd[fy][fx] = player;
     }
   }
-  for (const [fx, fy] of flipped) {
-    board[fy][fx] = player;
-  }
-  moveHistory.push({ x, y, player, flipped });
-  currentPlayer = -currentPlayer;
-  drawBoard();
-  updateScores();
-  checkGameOver();
 }
 
-function undoMove() {
-  const last = moveHistory.pop();
-  if (!last) return;
-  board[last.y][last.x] = 0;
-  for (const [fx, fy] of last.flipped) {
-    board[fy][fx] = -last.player;
-  }
-  aiLastMove = null;
-  currentPlayer = last.player;
+function endTurn() {
+  currentPlayer *= -1;
   drawBoard();
   updateScores();
+  if (getValidMoves(board, currentPlayer).length === 0) {
+    currentPlayer *= -1;
+    if (getValidMoves(board, currentPlayer).length === 0) {
+      document.getElementById("status").innerText = "遊戲結束！" + getWinner();
+      return;
+    }
+  }
+  if (currentPlayer === aiPlayer) setTimeout(aiMove, 500);
 }
 
-function restartGame() {
-  location.reload();
+function updateScores() {
+  let player = 0, ai = 0;
+  for (let row of board) {
+    for (let cell of row) {
+      if (cell === aiPlayer) ai++;
+      else if (cell === -aiPlayer) player++;
+    }
+  }
+  document.getElementById("player-score").innerText = player;
+  document.getElementById("ai-score").innerText = ai;
+}
+
+function getWinner() {
+  let p = 0, a = 0;
+  for (let row of board) {
+    for (let cell of row) {
+      if (cell === aiPlayer) a++;
+      else if (cell === -aiPlayer) p++;
+    }
+  }
+  if (a > p) return "AI 獲勝！";
+  else if (p > a) return "玩家獲勝！";
+  else return "平手！";
 }
 
 function aiMove() {
-  
-  const emptyCount = board.flat().filter(x => x === 0).length;
-  let depth = 4;
-  if (emptyCount < 20) depth = 6;
-  if (emptyCount < 10) depth = 8;
-
-  const best = minimax(board, depth, aiPlayer, -Infinity, Infinity).move;
-  if (best) {
-    aiLastMove = best;
-    applyMove(best.x, best.y, aiPlayer);
-    if (getValidMoves(playerColor).length === 0 && getValidMoves(aiPlayer).length !== 0) {
-      setTimeout(aiMove, 200);
-    }
+  let move = getBestMove(board, aiPlayer);
+  if (!move) {
+    endTurn();
+    return;
   }
+  history.push(JSON.parse(JSON.stringify(board)));
+  aiLastMove = move;
+  makeMove(board, move[0], move[1], aiPlayer);
+  endTurn();
 }
 
-function minimax(boardState, depth, player, alpha, beta) {
-  const validMoves = getValidMoves(player);
-  if (depth === 0 || validMoves.length === 0) {
-    return { score: evaluateBoard(boardState) };
+function evaluateBoard(board, player) {
+  const weights = [
+    [120, -20, 20, 5, 5, 20, -20, 120],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [120, -20, 20, 5, 5, 20, -20, 120]
+  ];
+  let score = 0;
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      if (board[y][x] === player) score += weights[y][x];
+      else if (board[y][x] === -player) score -= weights[y][x];
+    }
+  }
+  return score;
+}
+
+function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
+  if (depth === 0) {
+    return evaluateBoard(board, maximizingPlayer);
+  }
+  const validMoves = getValidMoves(board, player);
+  if (validMoves.length === 0) {
+    return evaluateBoard(board, maximizingPlayer);
   }
 
-  let bestMove = null;
-  if (player === aiPlayer) {
+  if (player === maximizingPlayer) {
     let maxEval = -Infinity;
-    for (const move of validMoves) {
-      const newBoard = boardState.map(row => row.slice());
-      simulateMove(newBoard, move.x, move.y, player);
-      const result = minimax(newBoard, depth - 1, -player, alpha, beta);
-      if (result.score > maxEval) {
-        maxEval = result.score;
-        bestMove = move;
-      }
-      alpha = Math.max(alpha, result.score);
+    for (let [x, y] of validMoves) {
+      let newBoard = JSON.parse(JSON.stringify(board));
+      makeMove(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      maxEval = Math.max(maxEval, eval);
+      alpha = Math.max(alpha, eval);
       if (beta <= alpha) break;
     }
-    return { score: maxEval, move: bestMove };
+    return maxEval;
   } else {
     let minEval = Infinity;
-    for (const move of validMoves) {
-      const newBoard = boardState.map(row => row.slice());
-      simulateMove(newBoard, move.x, move.y, player);
-      const result = minimax(newBoard, depth - 1, -player, alpha, beta);
-      if (result.score < minEval) {
-        minEval = result.score;
-        bestMove = move;
-      }
-      beta = Math.min(beta, result.score);
+    for (let [x, y] of validMoves) {
+      let newBoard = JSON.parse(JSON.stringify(board));
+      makeMove(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      minEval = Math.min(minEval, eval);
+      beta = Math.min(beta, eval);
       if (beta <= alpha) break;
     }
-    return { score: minEval, move: bestMove };
+    return minEval;
   }
 }
 
-function simulateMove(boardState, x, y, player) {
-  boardState[y][x] = player;
-  for (const [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy, temp = [];
-    while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && boardState[ny][nx] === -player) {
-      temp.push([nx, ny]);
-      nx += dx;
-      ny += dy;
-    }
-    if (temp.length && nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && boardState[ny][nx] === player) {
-      for (const [fx, fy] of temp) {
-        boardState[fy][fx] = player;
-      }
+function getBestMove(board, player) {
+  const validMoves = getValidMoves(board, player);
+  let bestScore = -Infinity;
+  let bestMove = null;
+  for (let [x, y] of validMoves) {
+    let newBoard = JSON.parse(JSON.stringify(board));
+    makeMove(newBoard, x, y, player);
+    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = [x, y];
     }
   }
+  return bestMove;
 }
 
-function evaluateBoard(boardState) {
-  let score = 0;
-  for (let y = 0; y < BOARD_SIZE; y++) {
-    for (let x = 0; x < BOARD_SIZE; x++) {
-      score += boardState[y][x];
-    }
-  }
-  const mobility = getValidMoves(aiPlayer).length - getValidMoves(playerColor).length;
-  return score * aiPlayer + 2 * mobility;
-}
-
-function checkGameOver() {
-  const playerMoves = getValidMoves(playerColor);
-  const aiMoves = getValidMoves(aiPlayer);
-  if (playerMoves.length === 0 && aiMoves.length === 0) {
-    const total = board.flat().reduce((acc, val) => acc + val, 0);
-    const result = total === 0 ? "平手" : (total > 0 ? "黑子勝利" : "白子勝利");
-    document.getElementById("status").innerText = `遊戲結束：${result}`;
+function undoMove() {
+  if (history.length >= 2) {
+    board = history.pop();
+    board = history.pop();
+    currentPlayer = -currentPlayer;
+    drawBoard();
+    updateScores();
+    document.getElementById("status").innerText = "悔棋成功。";
   } else {
-    document.getElementById("status").innerText =
-      currentPlayer === playerColor ? "請選擇一個位置下子" : "AI 思考中...";
+    document.getElementById("status").innerText = "無法悔棋。";
   }
-}
-
-document.getElementById("board").addEventListener("click", (e) => {
-  if (currentPlayer !== playerColor) return;
-  const size = e.target.width / BOARD_SIZE;
-  const x = Math.floor(e.offsetX / size);
-  const y = Math.floor(e.offsetY / size);
-  if (isValidMove(x, y, currentPlayer)) {
-    applyMove(x, y, currentPlayer);
-    if (getValidMoves(aiPlayer).length > 0) {
-      setTimeout(aiMove, 200);
-    }
-  }
-});
-
-
-function startGame(playerIsFirst, playerIsBlack) {
-  document.getElementById("start-screen").style.display = "none";
-  document.getElementById("game-screen").style.display = "block";
-  playerColor = playerIsBlack ? 1 : -1;
-  aiPlayer = -playerColor;
-  currentPlayer = playerIsFirst ? playerColor : aiPlayer;
-  initBoard();
-}
-
-  document.getElementById("start-screen").style.display = "none";
-  document.getElementById("game-screen").style.display = "block";
-  playerColor = playerIsBlack ? 1 : -1;
-  aiPlayer = -playerColor;
-  currentPlayer = playerIsFirst ? playerColor : aiPlayer;
-  initBoard();
 }
