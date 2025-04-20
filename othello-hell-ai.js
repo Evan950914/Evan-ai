@@ -1,3 +1,5 @@
+
+// Othello 地獄級 AI with undo + 強化版 minimax
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const size = 8;
@@ -7,6 +9,7 @@ let board = [];
 let aiLastMove = null;
 let currentPlayer = 1;
 let aiPlayer = -1;
+let history = [];
 
 function startGame(first) {
   document.getElementById('start-screen').style.display = 'none';
@@ -25,6 +28,7 @@ function initBoard() {
   board[4][4] = 1;
   board[3][4] = -1;
   board[4][3] = -1;
+  history = [];
 }
 
 function drawBoard() {
@@ -47,6 +51,12 @@ function drawBoard() {
       }
     }
   }
+  if (aiLastMove) {
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(aiLastMove[0] * tileSize, aiLastMove[1] * tileSize, tileSize, tileSize);
+    ctx.lineWidth = 1;
+  }
 }
 
 canvas.addEventListener("click", (e) => {
@@ -55,6 +65,7 @@ canvas.addEventListener("click", (e) => {
     const x = Math.floor((e.clientX - rect.left) / tileSize);
     const y = Math.floor((e.clientY - rect.top) / tileSize);
     if (isValidMove(board, x, y, currentPlayer)) {
+      history.push(JSON.parse(JSON.stringify(board)));
       makeMove(board, x, y, currentPlayer);
       endTurn();
     }
@@ -150,73 +161,33 @@ function getWinner() {
 }
 
 function aiMove() {
-  let moves = getValidMoves(board, aiPlayer);
-  if (moves.length === 0) {
+  let move = getBestMove(board, aiPlayer);
+  if (!move) {
     endTurn();
     return;
   }
-  let bestMove = moves[0], bestScore = -Infinity;
-  for (let [x, y] of moves) {
-    let temp = board.map(row => row.slice());
-    makeMove(temp, x, y, aiPlayer);
-    let score = evaluateBoard(temp, aiPlayer);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = [x, y];
-    }
-  }
-  makeMove(board, bestMove[0], bestMove[1], aiPlayer);
+  history.push(JSON.parse(JSON.stringify(board)));
+  aiLastMove = move;
+  makeMove(board, move[0], move[1], aiPlayer);
   endTurn();
 }
 
-function evaluateBoard(bd, player) {
-  let score = 0;
-  const weight = [
-    [100, -20, 10, 5, 5, 10, -20, 100],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [10, -2, -1, -1, -1, -1, -2, 10],
-    [5, -2, -1, -1, -1, -1, -2, 5],
-    [5, -2, -1, -1, -1, -1, -2, 5],
-    [10, -2, -1, -1, -1, -1, -2, 10],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [100, -20, 10, 5, 5, 10, -20, 100]
-  ];
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (bd[y][x] === player) score += weight[y][x];
-    }
-  }
-  return score;
-}
-
-
 function evaluateBoard(board, player) {
-  
   const weights = [
-    [120, -20,  20,  5,  5, 20, -20, 120],
+    [120, -20, 20, 5, 5, 20, -20, 120],
     [-20, -60, -10, -5, -5, -10, -60, -20],
-    [20,  -10, 15,  3,  3, 15,  -10,  20],
-    [5,   -5,   3,  3,  3,  3,   -5,   5],
-    [5,   -5,   3,  3,  3,  3,   -5,   5],
-    [20, -10, 15,  3,  3, 15,  -10,  20],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [20, -10, 15, 3, 3, 15, -10, 20],
     [-20, -60, -10, -5, -5, -10, -60, -20],
-    [120, -20,  20,  5,  5, 20, -20, 120],
-  ];
-
-    [100, -20, 10,  5,  5, 10, -20, 100],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [10,  -2,  -1, -1, -1, -1,  -2,  10],
-    [5,   -2,  -1, -1, -1, -1,  -2,   5],
-    [5,   -2,  -1, -1, -1, -1,  -2,   5],
-    [10,  -2,  -1, -1, -1, -1,  -2,  10],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [100, -20, 10,  5,  5, 10, -20, 100],
+    [120, -20, 20, 5, 5, 20, -20, 120]
   ];
   let score = 0;
   for (let y = 0; y < 8; y++) {
     for (let x = 0; x < 8; x++) {
-      if (board[x][y] === player) score += weights[y][x];
-      else if (board[x][y] === -player) score -= weights[y][x];
+      if (board[y][x] === player) score += weights[y][x];
+      else if (board[y][x] === -player) score -= weights[y][x];
     }
   }
   return score;
@@ -235,7 +206,7 @@ function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
     let maxEval = -Infinity;
     for (let [x, y] of validMoves) {
       let newBoard = JSON.parse(JSON.stringify(board));
-      makeMoveLocal(newBoard, x, y, player);
+      makeMove(newBoard, x, y, player);
       let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
       maxEval = Math.max(maxEval, eval);
       alpha = Math.max(alpha, eval);
@@ -246,7 +217,7 @@ function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
     let minEval = Infinity;
     for (let [x, y] of validMoves) {
       let newBoard = JSON.parse(JSON.stringify(board));
-      makeMoveLocal(newBoard, x, y, player);
+      makeMove(newBoard, x, y, player);
       let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
       minEval = Math.min(minEval, eval);
       beta = Math.min(beta, eval);
@@ -256,40 +227,31 @@ function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
   }
 }
 
-function makeMoveLocal(board, x, y, player) {
-  const directions = [
-    [0, 1], [1, 0], [0, -1], [-1, 0],
-    [1, 1], [-1, -1], [1, -1], [-1, 1],
-  ];
-  board[x][y] = player;
-  for (let [dx, dy] of directions) {
-    let nx = x + dx, ny = y + dy;
-    const toFlip = [];
-    while (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[nx][ny] === -player) {
-      toFlip.push([nx, ny]);
-      nx += dx;
-      ny += dy;
-    }
-    if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[nx][ny] === player) {
-      for (let [fx, fy] of toFlip) {
-        board[fx][fy] = player;
-      }
-    }
-  }
-}
-
 function getBestMove(board, player) {
   const validMoves = getValidMoves(board, player);
   let bestScore = -Infinity;
   let bestMove = null;
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
-    makeMoveLocal(newBoard, x, y, player);
-    let score = minimax(newBoard, 8, -player, player, -Infinity, Infinity); // depth 4
+    makeMove(newBoard, x, y, player);
+    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
     }
   }
   return bestMove;
+}
+
+function undoMove() {
+  if (history.length >= 2) {
+    board = history.pop();
+    board = history.pop();
+    currentPlayer = -currentPlayer;
+    drawBoard();
+    updateScores();
+    document.getElementById("status").innerText = "悔棋成功。";
+  } else {
+    document.getElementById("status").innerText = "無法悔棋。";
+  }
 }
