@@ -1,3 +1,5 @@
+const transpositionTable = new Map();
+
 
 // Othello 地獄級 AI with undo + 強化版 minimax（修復悔棋卡死問題）
 const canvas = document.getElementById('board');
@@ -187,13 +189,19 @@ function evaluateBoard(board, player) {
     [120, -20, 20, 5, 5, 20, -20, 120]
   ];
   let score = 0;
+  let stable = 0;
   for (let y = 0; y < 8; y++) {
     for (let x = 0; x < 8; x++) {
-      if (board[y][x] === player) score += weights[y][x];
-      else if (board[y][x] === -player) score -= weights[y][x];
+      if (board[y][x] === player) {
+        score += weights[y][x];
+        if ((x === 0 || x === 7) && (y === 0 || y === 7)) stable += 1;
+      } else if (board[y][x] === -player) {
+        score -= weights[y][x];
+      }
     }
   }
-  return score;
+  const mobility = getValidMoves(board, player).length - getValidMoves(board, -player).length;
+  return score + 10 * mobility + 15 * stable;
 }
 
 function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
@@ -232,12 +240,26 @@ function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
 
 function getBestMove(board, player) {
   const validMoves = getValidMoves(board, player);
+  validMoves.sort((a, b) => {
+    const w = [
+      [120, -20, 20, 5, 5, 20, -20, 120],
+      [-20, -60, -10, -5, -5, -10, -60, -20],
+      [20, -10, 15, 3, 3, 15, -10, 20],
+      [5, -5, 3, 3, 3, 3, -5, 5],
+      [5, -5, 3, 3, 3, 3, -5, 5],
+      [20, -10, 15, 3, 3, 15, -10, 20],
+      [-20, -60, -10, -5, -5, -10, -60, -20],
+      [120, -20, 20, 5, 5, 20, -20, 120]
+    ];
+    return w[b[1]][b[0]] - w[a[1]][a[0]];
+  });
+
   let bestScore = -Infinity;
   let bestMove = null;
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
     makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 6, -player, player, -Infinity, Infinity);
+    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
