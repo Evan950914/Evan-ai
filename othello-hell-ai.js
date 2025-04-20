@@ -4,6 +4,7 @@ const size = 8;
 const tileSize = canvas.width / size;
 
 let board = [];
+let aiLastMove = null;
 let currentPlayer = 1;
 let aiPlayer = -1;
 
@@ -31,7 +32,7 @@ function drawBoard() {
 
   const moves = getValidMoves(board, currentPlayer);
   for (let [x, y] of moves) {
-    ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+    ctx.fillStyle = "rgba(255, 255, 0, 0.8)";
     ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
   }
   for (let y = 0; y < size; y++) {
@@ -186,4 +187,109 @@ function evaluateBoard(bd, player) {
     }
   }
   return score;
+}
+
+
+function evaluateBoard(board, player) {
+  
+  const weights = [
+    [120, -20,  20,  5,  5, 20, -20, 120],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [20,  -10, 15,  3,  3, 15,  -10,  20],
+    [5,   -5,   3,  3,  3,  3,   -5,   5],
+    [5,   -5,   3,  3,  3,  3,   -5,   5],
+    [20, -10, 15,  3,  3, 15,  -10,  20],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [120, -20,  20,  5,  5, 20, -20, 120],
+  ];
+
+    [100, -20, 10,  5,  5, 10, -20, 100],
+    [-20, -50, -2, -2, -2, -2, -50, -20],
+    [10,  -2,  -1, -1, -1, -1,  -2,  10],
+    [5,   -2,  -1, -1, -1, -1,  -2,   5],
+    [5,   -2,  -1, -1, -1, -1,  -2,   5],
+    [10,  -2,  -1, -1, -1, -1,  -2,  10],
+    [-20, -50, -2, -2, -2, -2, -50, -20],
+    [100, -20, 10,  5,  5, 10, -20, 100],
+  ];
+  let score = 0;
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      if (board[x][y] === player) score += weights[y][x];
+      else if (board[x][y] === -player) score -= weights[y][x];
+    }
+  }
+  return score;
+}
+
+function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
+  if (depth === 0) {
+    return evaluateBoard(board, maximizingPlayer);
+  }
+  const validMoves = getValidMoves(board, player);
+  if (validMoves.length === 0) {
+    return evaluateBoard(board, maximizingPlayer);
+  }
+
+  if (player === maximizingPlayer) {
+    let maxEval = -Infinity;
+    for (let [x, y] of validMoves) {
+      let newBoard = JSON.parse(JSON.stringify(board));
+      makeMoveLocal(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      maxEval = Math.max(maxEval, eval);
+      alpha = Math.max(alpha, eval);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for (let [x, y] of validMoves) {
+      let newBoard = JSON.parse(JSON.stringify(board));
+      makeMoveLocal(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      minEval = Math.min(minEval, eval);
+      beta = Math.min(beta, eval);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+}
+
+function makeMoveLocal(board, x, y, player) {
+  const directions = [
+    [0, 1], [1, 0], [0, -1], [-1, 0],
+    [1, 1], [-1, -1], [1, -1], [-1, 1],
+  ];
+  board[x][y] = player;
+  for (let [dx, dy] of directions) {
+    let nx = x + dx, ny = y + dy;
+    const toFlip = [];
+    while (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[nx][ny] === -player) {
+      toFlip.push([nx, ny]);
+      nx += dx;
+      ny += dy;
+    }
+    if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8 && board[nx][ny] === player) {
+      for (let [fx, fy] of toFlip) {
+        board[fx][fy] = player;
+      }
+    }
+  }
+}
+
+function getBestMove(board, player) {
+  const validMoves = getValidMoves(board, player);
+  let bestScore = -Infinity;
+  let bestMove = null;
+  for (let [x, y] of validMoves) {
+    let newBoard = JSON.parse(JSON.stringify(board));
+    makeMoveLocal(newBoard, x, y, player);
+    let score = minimax(newBoard, 8, -player, player, -Infinity, Infinity); // depth 4
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = [x, y];
+    }
+  }
+  return bestMove;
 }
