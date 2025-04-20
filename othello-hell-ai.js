@@ -5,6 +5,7 @@ let currentPlayer = 1; // 1: black, -1: white
 let playerColor = 1;
 let aiPlayer = -1;
 let moveHistory = [];
+let aiLastMove = null;
 
 const directions = [
   [-1, -1], [-1, 0], [-1, 1],
@@ -17,6 +18,7 @@ function initBoard() {
   board[3][3] = board[4][4] = -1;
   board[3][4] = board[4][3] = 1;
   moveHistory = [];
+  aiLastMove = null;
   drawBoard();
   updateScores();
   if (currentPlayer === aiPlayer) {
@@ -29,6 +31,14 @@ function drawBoard() {
   const ctx = canvas.getContext("2d");
   const size = canvas.width / BOARD_SIZE;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const validMoves = getValidMoves(currentPlayer);
+
+  // Draw valid move highlights
+  for (const { x, y } of validMoves) {
+    ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
+    ctx.fillRect(x * size, y * size, size, size);
+  }
 
   ctx.strokeStyle = "#000";
   for (let i = 0; i <= BOARD_SIZE; i++) {
@@ -52,6 +62,13 @@ function drawBoard() {
         ctx.fill();
       }
     }
+  }
+
+  if (aiLastMove) {
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(aiLastMove.x * size, aiLastMove.y * size, size, size);
+    ctx.lineWidth = 1;
   }
 }
 
@@ -124,6 +141,7 @@ function undoMove() {
   for (const [fx, fy] of last.flipped) {
     board[fy][fx] = -last.player;
   }
+  aiLastMove = null;
   currentPlayer = last.player;
   drawBoard();
   updateScores();
@@ -137,6 +155,7 @@ function aiMove() {
   const depth = 10;
   const best = minimax(board, depth, aiPlayer, -Infinity, Infinity).move;
   if (best) {
+    aiLastMove = best;
     applyMove(best.x, best.y, aiPlayer);
     if (getValidMoves(playerColor).length === 0 && getValidMoves(aiPlayer).length !== 0) {
       setTimeout(aiMove, 200);
@@ -155,7 +174,7 @@ function minimax(boardState, depth, player, alpha, beta) {
     let maxEval = -Infinity;
     for (const move of validMoves) {
       const newBoard = boardState.map(row => row.slice());
-      const flipped = simulateMove(newBoard, move.x, move.y, player);
+      simulateMove(newBoard, move.x, move.y, player);
       const result = minimax(newBoard, depth - 1, -player, alpha, beta);
       if (result.score > maxEval) {
         maxEval = result.score;
@@ -169,7 +188,7 @@ function minimax(boardState, depth, player, alpha, beta) {
     let minEval = Infinity;
     for (const move of validMoves) {
       const newBoard = boardState.map(row => row.slice());
-      const flipped = simulateMove(newBoard, move.x, move.y, player);
+      simulateMove(newBoard, move.x, move.y, player);
       const result = minimax(newBoard, depth - 1, -player, alpha, beta);
       if (result.score < minEval) {
         minEval = result.score;
@@ -183,7 +202,6 @@ function minimax(boardState, depth, player, alpha, beta) {
 }
 
 function simulateMove(boardState, x, y, player) {
-  const flipped = [];
   boardState[y][x] = player;
   for (const [dx, dy] of directions) {
     let nx = x + dx, ny = y + dy, temp = [];
@@ -195,11 +213,9 @@ function simulateMove(boardState, x, y, player) {
     if (temp.length && nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && boardState[ny][nx] === player) {
       for (const [fx, fy] of temp) {
         boardState[fy][fx] = player;
-        flipped.push([fx, fy]);
       }
     }
   }
-  return flipped;
 }
 
 function evaluateBoard(boardState) {
@@ -242,8 +258,8 @@ document.getElementById("board").addEventListener("click", (e) => {
 function startGame(playerIsFirst, playerIsBlack) {
   document.getElementById("start-screen").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
-  aiPlayer = (playerIsBlack === playerIsFirst) ? -1 : 1;
-  currentPlayer = playerIsFirst ? 1 : -1;
   playerColor = playerIsBlack ? 1 : -1;
+  aiPlayer = -playerColor;
+  currentPlayer = playerIsFirst ? playerColor : aiPlayer;
   initBoard();
 }
