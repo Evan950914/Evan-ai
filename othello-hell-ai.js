@@ -154,9 +154,9 @@ function restartGame() {
 function aiMove() {
   
   const emptyCount = board.flat().filter(x => x === 0).length;
-  let depth = 6;
-  if (emptyCount < 20) depth = 8;
-  if (emptyCount < 10) depth = 10;
+  let depth = 4;
+  if (emptyCount < 20) depth = 6;
+  if (emptyCount < 10) depth = 8;
 
   const best = minimax(board, depth, aiPlayer, -Infinity, Infinity).move;
   if (best) {
