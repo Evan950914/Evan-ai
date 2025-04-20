@@ -234,7 +234,7 @@ function getBestMove(board, player) {
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
     makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
+    let score = minimax(newBoard, 7, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
