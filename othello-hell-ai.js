@@ -152,7 +152,12 @@ function restartGame() {
 }
 
 function aiMove() {
-  const depth = 10;
+  
+  const emptyCount = board.flat().filter(x => x === 0).length;
+  let depth = 6;
+  if (emptyCount < 20) depth = 8;
+  if (emptyCount < 10) depth = 10;
+
   const best = minimax(board, depth, aiPlayer, -Infinity, Infinity).move;
   if (best) {
     aiLastMove = best;
@@ -255,7 +260,16 @@ document.getElementById("board").addEventListener("click", (e) => {
   }
 });
 
+
 function startGame(playerIsFirst, playerIsBlack) {
+  document.getElementById("start-screen").style.display = "none";
+  document.getElementById("game-screen").style.display = "block";
+  playerColor = playerIsBlack ? 1 : -1;
+  aiPlayer = -playerColor;
+  currentPlayer = playerIsFirst ? playerColor : aiPlayer;
+  initBoard();
+}
+
   document.getElementById("start-screen").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
   playerColor = playerIsBlack ? 1 : -1;
