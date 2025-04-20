@@ -222,3 +222,95 @@ function startGame(whoStarts) {
     setTimeout(aiMove, 200);
   }
 }
+
+
+let lastAIMove = null;
+
+document.getElementById('board').addEventListener('click', function(event) {
+  if (gameState.currentPlayer !== gameState.playerColor) return;
+
+  const canvas = event.target;
+  const rect = canvas.getBoundingClientRect();
+  const size = canvas.width / 8;
+  const x = Math.floor((event.clientX - rect.left) / size);
+  const y = Math.floor((event.clientY - rect.top) / size);
+
+  const legalMoves = getLegalMoves(gameState.board, gameState.playerColor);
+  const clicked = legalMoves.find(m => m.x === x && m.y === y);
+  if (clicked) {
+    applyMove(gameState.board, clicked, gameState.playerColor);
+    gameState.currentPlayer = gameState.aiColor;
+    renderBoard();
+    updateScores();
+    checkGameOver();
+    setTimeout(aiMove, 200);
+  }
+});
+
+function renderBoard() {
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width / 8;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw grid and pieces
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      ctx.strokeRect(x * size, y * size, size, size);
+      if (gameState.board[y][x]) {
+        ctx.beginPath();
+        ctx.arc(x * size + size / 2, y * size + size / 2, size / 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = gameState.board[y][x];
+        ctx.fill();
+      }
+    }
+  }
+
+  // Draw legal move hints for player (yellow)
+  if (gameState.currentPlayer === gameState.playerColor) {
+    const legalMoves = getLegalMoves(gameState.board, gameState.playerColor);
+    ctx.strokeStyle = 'yellow';
+    ctx.lineWidth = 3;
+    for (let move of legalMoves) {
+      ctx.beginPath();
+      ctx.arc(move.x * size + size / 2, move.y * size + size / 2, size / 4, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  // Draw last AI move (red)
+  if (lastAIMove) {
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(lastAIMove.x * size + size / 2, lastAIMove.y * size + size / 2, size / 4, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+}
+
+function aiMove() {
+  const depth = parseInt(document.getElementById('search-depth').value) || 6;
+  const aiColor = gameState.aiColor;
+  const legalMoves = getLegalMoves(gameState.board, aiColor);
+  let bestMove = null, bestValue = -Infinity;
+
+  for (let move of legalMoves) {
+    const testBoard = cloneBoard(gameState.board);
+    applyMove(testBoard, move, aiColor);
+    const value = minimax(testBoard, depth - 1, false, aiColor, -Infinity, Infinity);
+    if (value > bestValue) {
+      bestValue = value;
+      bestMove = move;
+    }
+  }
+
+  if (bestMove) {
+    applyMove(gameState.board, bestMove, aiColor);
+    lastAIMove = bestMove;
+    gameState.currentPlayer = gameState.playerColor;
+    renderBoard();
+    updateScores();
+    checkGameOver();
+  }
+}
