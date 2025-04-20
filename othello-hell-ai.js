@@ -1,4 +1,17 @@
 
+function startGame(firstTurn) {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  const playerColor = document.querySelector('input[name="player-color"]:checked').value;
+  const searchDepth = parseInt(document.getElementById('search-depth').value, 10);
+  // 假設這裡有個 initGame 函數可用
+  if (typeof initGame === 'function') {
+    initGame(playerColor, searchDepth, firstTurn);
+  } else {
+    alert("initGame 函數未定義，請補上遊戲初始化邏輯");
+  }
+}
+
 let gameState;
 let aiSearchDepth = 10;
 let history = [];
