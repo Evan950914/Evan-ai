@@ -1,5 +1,5 @@
 
-// Othello 地獄級 AI with undo + 強化版 minimax
+// Othello 地獄級 AI with undo + 強化版 minimax（修復悔棋卡死問題）
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const size = 8;
@@ -10,6 +10,10 @@ let aiLastMove = null;
 let currentPlayer = 1;
 let aiPlayer = -1;
 let history = [];
+
+function deepCopy(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
 
 function startGame(first) {
   document.getElementById('start-screen').style.display = 'none';
@@ -33,7 +37,6 @@ function initBoard() {
 
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   const moves = getValidMoves(board, currentPlayer);
   for (let [x, y] of moves) {
     ctx.fillStyle = "rgba(255, 255, 0, 0.8)";
@@ -65,7 +68,7 @@ canvas.addEventListener("click", (e) => {
     const x = Math.floor((e.clientX - rect.left) / tileSize);
     const y = Math.floor((e.clientY - rect.top) / tileSize);
     if (isValidMove(board, x, y, currentPlayer)) {
-      history.push(JSON.parse(JSON.stringify(board)));
+      history.push({ board: deepCopy(board), player: currentPlayer });
       makeMove(board, x, y, currentPlayer);
       endTurn();
     }
@@ -166,7 +169,7 @@ function aiMove() {
     endTurn();
     return;
   }
-  history.push(JSON.parse(JSON.stringify(board)));
+  history.push({ board: deepCopy(board), player: aiPlayer });
   aiLastMove = move;
   makeMove(board, move[0], move[1], aiPlayer);
   endTurn();
@@ -234,7 +237,7 @@ function getBestMove(board, player) {
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
     makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 7, -player, player, -Infinity, Infinity);
+    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
@@ -244,14 +247,23 @@ function getBestMove(board, player) {
 }
 
 function undoMove() {
-  if (history.length >= 2) {
-    board = history.pop();
-    board = history.pop();
-    currentPlayer = -currentPlayer;
-    drawBoard();
-    updateScores();
-    document.getElementById("status").innerText = "悔棋成功。";
-  } else {
+  if (history.length === 0) {
     document.getElementById("status").innerText = "無法悔棋。";
+    return;
   }
+
+  while (history.length > 0) {
+    const last = history.pop();
+    if (last.player !== aiPlayer) {
+      board = deepCopy(last.board);
+      currentPlayer = last.player;
+      aiLastMove = null;
+      drawBoard();
+      updateScores();
+      document.getElementById("status").innerText = "悔棋成功。";
+      return;
+    }
+  }
+
+  document.getElementById("status").innerText = "無法悔棋。";
 }

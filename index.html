@@ -1,22 +1,22 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>只有陳芊妤會輸黑白棋</title>
-  <link rel="stylesheet" href="othello-style.css">
+  <meta charset="UTF-8" />
+  <title>黑白棋修正版</title>
+  <link rel="stylesheet" href="othello-style.css" />
 </head>
 <body>
   <div id="start-screen">
-    <h1>只有陳芊妤會輸黑白棋</h1>
-    <p>選擇先手：</p>
+    <h1>黑白棋</h1>
     <button onclick="startGame('player')">玩家先手</button>
     <button onclick="startGame('ai')">AI 先手</button>
   </div>
   <div id="game-screen" style="display:none;">
-    <h2>只有陳芊妤會輸黑白棋</h2>
+    <h2>黑白棋對戰</h2>
     <p>玩家分數：<span id="player-score">2</span> | AI 分數：<span id="ai-score">2</span></p>
     <canvas id="board" width="480" height="480"></canvas>
-    <p id="status"></p>
+    <p id="status">遊戲開始！</p>
     <button onclick="undoMove()">悔棋</button>
   </div>
   <script src="othello-hell-ai.js"></script>
