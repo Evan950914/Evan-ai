@@ -9,6 +9,16 @@
   <div id="start-screen">
     <h1>地獄級黑白棋</h1>
     <p>選擇先手：</p>
+    <p>選擇你的顏色：</p>
+    <label><input type="radio" name="player-color" value="black" checked> 黑</label>
+    <label><input type="radio" name="player-color" value="white"> 白</label>
+    <p>AI 搜尋深度：</p>
+    <select id="search-depth">
+      <option value="4">4</option>
+      <option value="6">6</option>
+      <option value="8">8</option>
+      <option value="10" selected>10（無敵）</option>
+    </select>
     <button onclick="startGame('player')">玩家先手</button>
     <button onclick="startGame('ai')">AI 先手</button>
   </div>
