@@ -6,7 +6,18 @@
   <link rel="stylesheet" href="othello-style.css">
 </head>
 <body>
-  <div id="start-screen">
+  
+<div id="start-screen">
+  <h1>地獄級黑白棋</h1>
+  <p>選擇先後手與棋子顏色：</p>
+  <label><input type="radio" name="order" value="first" checked> 玩家先手</label>
+  <label><input type="radio" name="order" value="second"> 玩家後手</label>
+  <br>
+  <label><input type="radio" name="color" value="black" checked> 玩家黑子</label>
+  <label><input type="radio" name="color" value="white"> 玩家白子</label>
+  <br><br>
+  <button onclick="setupGame()">開始遊戲</button>
+
     <h1>地獄級黑白棋</h1>
     <p>選擇先手：</p>
     <button onclick="startGame('player')">玩家先手</button>
@@ -19,6 +30,17 @@
     <p id="status"></p>
     <button onclick="undoMove()">悔棋</button>
   </div>
-  <script src="othello-hell-ai.js"></script>
+  
+<script>
+function setupGame() {
+  const order = document.querySelector('input[name="order"]:checked').value;
+  const color = document.querySelector('input[name="color"]:checked').value;
+  const playerIsFirst = (order === 'first');
+  const playerIsBlack = (color === 'black');
+  startGame(playerIsFirst, playerIsBlack);
+}
+</script>
+<script src="othello-hell-ai.js"></script>
+
 </body>
 </html>

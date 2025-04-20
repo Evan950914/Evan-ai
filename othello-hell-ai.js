@@ -11,12 +11,17 @@ let currentPlayer = 1;
 let aiPlayer = -1;
 let history = [];
 
-function startGame(first) {
+
+function startGame(playerIsFirst, playerIsBlack) {
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
-  aiPlayer = first === 'ai' ? 1 : -1;
-  currentPlayer = 1;
+
+  aiPlayer = (playerIsBlack === playerIsFirst) ? -1 : 1;
+  currentPlayer = playerIsFirst ? 1 : -1;
+  playerColor = playerIsBlack ? 1 : -1;
+
   initBoard();
+
   drawBoard();
   updateScores();
   if (aiPlayer === currentPlayer) setTimeout(aiMove, 500);
@@ -172,7 +177,31 @@ function aiMove() {
   endTurn();
 }
 
+
 function evaluateBoard(board, player) {
+  const weights = [
+    [120, -20, 20, 5, 5, 20, -20, 120],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [120, -20, 20, 5, 5, 20, -20, 120]
+  ];
+  let score = 0;
+  let playerMoves = getValidMoves(board, player).length;
+  let opponentMoves = getValidMoves(board, -player).length;
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      if (board[y][x] === player) score += weights[y][x];
+      else if (board[y][x] === -player) score -= weights[y][x];
+    }
+  }
+  score += 10 * (playerMoves - opponentMoves);  // Mobility
+  return score;
+}
+
   const weights = [
     [120, -20, 20, 5, 5, 20, -20, 120],
     [-20, -60, -10, -5, -5, -10, -60, -20],
@@ -234,7 +263,7 @@ function getBestMove(board, player) {
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
     makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
+    let score = minimax(newBoard, 10, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
@@ -243,15 +272,20 @@ function getBestMove(board, player) {
   return bestMove;
 }
 
+
 function undoMove() {
   if (history.length >= 2) {
     board = history.pop();
     board = history.pop();
-    currentPlayer = -currentPlayer;
+    aiLastMove = null;
+    currentPlayer = playerColor;
     drawBoard();
     updateScores();
     document.getElementById("status").innerText = "悔棋成功。";
+    if (currentPlayer === aiPlayer) setTimeout(aiMove, 500);
   } else {
+    document.getElementById("status").innerText = "無法悔棋。";
+
     document.getElementById("status").innerText = "無法悔棋。";
   }
 }
