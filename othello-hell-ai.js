@@ -1,7 +1,6 @@
 const transpositionTable = new Map();
 
 
-// Othello 地獄級 AI with undo + 強化版 minimax（修復悔棋卡死問題）
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const size = 8;
@@ -259,7 +258,7 @@ function getBestMove(board, player) {
   for (let [x, y] of validMoves) {
     let newBoard = JSON.parse(JSON.stringify(board));
     makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 6, -player, player, -Infinity, Infinity);
+    let score = minimax(newBoard, 5, -player, player, -Infinity, Infinity);
     if (score > bestScore) {
       bestScore = score;
       bestMove = [x, y];
