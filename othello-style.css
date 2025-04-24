@@ -1,20 +1,18 @@
+
 body {
   font-family: sans-serif;
   text-align: center;
-  background-color: #f8f8f8;
+  background-color: #f0e5d8;
 }
+
 canvas {
   background-color: #8b5e3c;
-  margin: 10px;
-  border: 5px solid #333;
+  border: 4px solid #333;
+  margin-top: 10px;
 }
+
 button {
   padding: 10px 20px;
+  font-size: 16px;
   margin: 10px;
-  font-size: 16px;
-}
-#winrate {
-  margin-top: 5px;
-  font-size: 16px;
-  font-weight: bold;
 }

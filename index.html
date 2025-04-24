@@ -1,26 +1,23 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>最終進化 Othello AI</title>
+  <title>正向黑先</title>
   <link rel="stylesheet" href="othello-style.css" />
 </head>
 <body>
   <div id="start-screen">
-    <h1>學習型黑白棋 AI</h1>
+    <h1>正向黑先</h1>
     <button onclick="startGame('player')">玩家先手</button>
     <button onclick="startGame('ai')">AI 先手</button>
-    <button onclick="startGame('selfplay')">AI 自我訓練</button>
-    <p><small>記憶保存在 localStorage，AI 可自學進化</small></p>
   </div>
   <div id="game-screen" style="display:none;">
+    <h2>正向黑先</h2>
     <p>玩家分數：<span id="player-score">2</span> | AI 分數：<span id="ai-score">2</span></p>
     <canvas id="board" width="480" height="480"></canvas>
     <p id="status">遊戲開始！</p>
-    <p id="winrate">勝率：黑 <span id="black-rate">50%</span> vs 白 <span id="white-rate">50%</span></p>
     <button onclick="undoMove()">悔棋</button>
-    <button onclick="resetLearn()">清除AI記憶</button>
-    <button onclick="restartGame()">重新開始</button>
   </div>
   <script src="othello-hell-ai.js"></script>
 </body>
