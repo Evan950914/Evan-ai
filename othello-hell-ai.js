@@ -6,6 +6,7 @@ let history = [];
 let aiLastMove = null;
 let qTable = loadQTable();
 let selfPlayMode = false;
+let epsilon = 0.1;  // 探索機率（避免死循環）
 
 function initBoard() {
   board = Array(8).fill().map(() => Array(8).fill(0));
@@ -18,18 +19,19 @@ function initBoard() {
 function saveQTable() {
   localStorage.setItem("qTable", JSON.stringify(qTable));
 }
-
 function loadQTable() {
   const raw = localStorage.getItem("qTable");
   return raw ? JSON.parse(raw) : {};
 }
-
 function resetLearn() {
   qTable = {};
   saveQTable();
   alert("AI 記憶已清除！");
 }
-
+function restartGame() {
+  document.getElementById("start-screen").style.display = "block";
+  document.getElementById("game-screen").style.display = "none";
+}
 function startGame(mode) {
   selfPlayMode = (mode === "selfplay");
   currentPlayer = (mode === "ai") ? -1 : 1;
@@ -39,143 +41,26 @@ function startGame(mode) {
   drawBoard();
   document.getElementById("start-screen").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
-  if (selfPlayMode || currentPlayer === aiPlayer) {
-    setTimeout(aiMove, 400);
-  }
-}
-
-// --- 評估函數與 Minimax ---
-function evaluateBoard(b, player) {
-  const weights = [
-    [100, -20, 10, 5, 5, 10, -20, 100],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [10, -2, -1, -1, -1, -1, -2, 10],
-    [5, -2, -1, -1, -1, -1, -2, 5],
-    [5, -2, -1, -1, -1, -1, -2, 5],
-    [10, -2, -1, -1, -1, -1, -2, 10],
-    [-20, -50, -2, -2, -2, -2, -50, -20],
-    [100, -20, 10, 5, 5, 10, -20, 100],
-  ];
-  let score = 0;
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-      if (b[y][x] === player) score += weights[y][x];
-      if (b[y][x] === -player) score -= weights[y][x];
-    }
-  }
-  score += getValidMoves(b, player).length * 10;
-  score -= getValidMoves(b, -player).length * 10;
-  return score;
-}
-
-function getBestMoveByMinimax(b, player, depth = 4, alpha = -Infinity, beta = Infinity) {
-  const moves = getValidMoves(b, player);
-  if (moves.length === 0 || depth === 0) return { score: evaluateBoard(b, player) };
-
-  let bestScore = -Infinity;
-  let bestMove = null;
-
-  for (const [x, y] of moves) {
-    const copy = JSON.parse(JSON.stringify(b));
-    makeMoveMini(copy, x, y, player);
-    const result = getBestMoveByMinimax(copy, -player, depth - 1, -beta, -alpha);
-    const score = -result.score;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = [x, y];
-    }
-
-    alpha = Math.max(alpha, score);
-    if (alpha >= beta) break;
-  }
-
-  return { move: bestMove, score: bestScore };
-}
-
-function makeMoveMini(b, x, y, player) {
-  b[y][x] = player;
-  const dirs = [-1, 0, 1];
-  for (let dx of dirs) for (let dy of dirs) {
-    if (dx === 0 && dy === 0) continue;
-    let nx = x + dx, ny = y + dy, flips = [];
-    while (nx >= 0 && ny >= 0 && nx < 8 && ny < 8 && b[ny][nx] === -player) {
-      flips.push([nx, ny]);
-      nx += dx; ny += dy;
-    }
-    if (nx >= 0 && ny >= 0 && nx < 8 && ny < 8 && b[ny][nx] === player)
-      for (const [fx, fy] of flips) b[fy][fx] = player;
-  }
-}
-
-// --- 落子相關 ---
-function encodeBoard(b, player) {
-  return b.flat().join("") + "_" + player;
-}
-
-function getValidMoves(b, player) {
-  const moves = [];
-  for (let y = 0; y < 8; y++)
-    for (let x = 0; x < 8; x++)
-      if (isValidMove(b, x, y, player)) moves.push([x, y]);
-  return moves;
-}
-
-function isValidMove(b, x, y, player) {
-  if (b[y][x] !== 0) return false;
-  const dirs = [-1, 0, 1];
-  for (let dx of dirs) for (let dy of dirs) {
-    if (dx === 0 && dy === 0) continue;
-    let nx = x + dx, ny = y + dy, seen = false;
-    while (nx >= 0 && ny >= 0 && nx < 8 && ny < 8) {
-      if (b[ny][nx] === -player) seen = true;
-      else if (b[ny][nx] === player && seen) return true;
-      else break;
-      nx += dx; ny += dy;
-    }
-  }
-  return false;
-}
-
-function makeMove(x, y, player) {
-  board[y][x] = player;
-  const dirs = [-1, 0, 1];
-  for (let dx of dirs) for (let dy of dirs) {
-    if (dx === 0 && dy === 0) continue;
-    let nx = x + dx, ny = y + dy, flips = [];
-    while (nx >= 0 && ny >= 0 && nx < 8 && ny < 8 && board[ny][nx] === -player) {
-      flips.push([nx, ny]);
-      nx += dx; ny += dy;
-    }
-    if (nx >= 0 && ny >= 0 && nx < 8 && ny < 8 && board[ny][nx] === player)
-      for (const [fx, fy] of flips) board[fy][fx] = player;
-  }
-  history.push(JSON.parse(JSON.stringify(board)));
-}
-
-function undoMove() {
-  if (history.length >= 2) {
-    history.pop(); board = history.pop();
-    currentPlayer = playerColor;
-    aiLastMove = null;
-    drawBoard();
-  }
+  if (selfPlayMode || currentPlayer === aiPlayer) setTimeout(aiMove, 300);
 }
 
 function aiMove() {
   const key = encodeBoard(board, currentPlayer);
   const moves = getValidMoves(board, currentPlayer);
-
   if (moves.length === 0) {
     currentPlayer *= -1;
-    if (selfPlayMode || currentPlayer === aiPlayer) {
-      setTimeout(aiMove, 300);
+    const oppMoves = getValidMoves(board, currentPlayer);
+    if (oppMoves.length === 0) {
+      checkGameOver(); return;
     }
+    if (selfPlayMode || currentPlayer === aiPlayer) setTimeout(aiMove, 300);
     return;
   }
 
   let move = null;
-  if (qTable[key]) {
+
+  if (qTable[key] && Math.random() > epsilon) {
+    // 從學習中挑最好的
     let best = -Infinity;
     for (let m in qTable[key]) {
       if (qTable[key][m] > best) {
@@ -187,7 +72,7 @@ function aiMove() {
 
   if (!move) {
     const best = getBestMoveByMinimax(board, currentPlayer, 4);
-    move = best.move;
+    move = best.move || moves[Math.floor(Math.random() * moves.length)];
   }
 
   const moveKey = move.join(",");
@@ -201,9 +86,7 @@ function aiMove() {
   currentPlayer *= -1;
   drawBoard();
 
-  if (selfPlayMode || currentPlayer === aiPlayer) {
-    setTimeout(aiMove, 300);
-  }
+  if (selfPlayMode || currentPlayer === aiPlayer) setTimeout(aiMove, 300);
 }
 
 function drawBoard() {
@@ -239,14 +122,24 @@ function drawBoard() {
   }
 
   updateScores();
+  showWinRate();
   checkGameOver();
+}
+
+function showWinRate() {
+  const score = evaluateBoard(board, 1);
+  const percent = Math.max(0, Math.min(100, Math.round((score + 200) / 4)));
+  document.getElementById("black-rate").textContent = `${percent}%`;
+  document.getElementById("white-rate").textContent = `${100 - percent}%`;
 }
 
 function updateScores() {
   let black = 0, white = 0;
-  for (let row of board) for (let cell of row) {
-    if (cell === 1) black++;
-    else if (cell === -1) white++;
+  for (let row of board) {
+    for (let cell of row) {
+      if (cell === 1) black++;
+      else if (cell === -1) white++;
+    }
   }
   document.getElementById("player-score").textContent = playerColor === 1 ? black : white;
   document.getElementById("ai-score").textContent = aiPlayer === 1 ? black : white;
@@ -267,7 +160,15 @@ function checkGameOver() {
   }
 }
 
-// 桌機
+function undoMove() {
+  if (history.length >= 2) {
+    history.pop(); board = history.pop();
+    currentPlayer = playerColor;
+    aiLastMove = null;
+    drawBoard();
+  }
+}
+
 document.getElementById("board").addEventListener("click", (e) => {
   if (currentPlayer !== playerColor || selfPlayMode) return;
   const rect = e.target.getBoundingClientRect();
@@ -281,7 +182,6 @@ document.getElementById("board").addEventListener("click", (e) => {
   }
 });
 
-// 手機
 document.getElementById("board").addEventListener("touchstart", (e) => {
   if (currentPlayer !== playerColor || selfPlayMode) return;
   const rect = e.target.getBoundingClientRect();
@@ -295,4 +195,3 @@ document.getElementById("board").addEventListener("touchstart", (e) => {
     if (currentPlayer === aiPlayer) setTimeout(aiMove, 300);
   }
 });
-
