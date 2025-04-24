@@ -5,41 +5,34 @@ let aiPlayer = -1;
 let history = [];
 let aiLastMove = null;
 let qTable = loadQTable();
-let learnData = [];
 let selfPlayMode = false;
 
-// 初始盤面
 function initBoard() {
   board = Array(8).fill().map(() => Array(8).fill(0));
   board[3][3] = 1; board[3][4] = -1;
   board[4][3] = -1; board[4][4] = 1;
   history = [];
   aiLastMove = null;
-  learnData = [];
 }
 
-// 儲存 qTable 到 localStorage
 function saveQTable() {
   localStorage.setItem("qTable", JSON.stringify(qTable));
 }
 
-// 載入 qTable
 function loadQTable() {
   const raw = localStorage.getItem("qTable");
   return raw ? JSON.parse(raw) : {};
 }
 
-// 清除學習
 function resetLearn() {
   qTable = {};
   saveQTable();
   alert("AI 記憶已清除！");
 }
 
-// 開始遊戲
 function startGame(mode) {
   selfPlayMode = (mode === "selfplay");
-  currentPlayer = 1;
+  currentPlayer = (mode === "ai") ? -1 : 1;
   playerColor = 1;
   aiPlayer = -1;
   initBoard();
@@ -47,7 +40,7 @@ function startGame(mode) {
   document.getElementById("start-screen").style.display = "none";
   document.getElementById("game-screen").style.display = "block";
   if (selfPlayMode || currentPlayer === aiPlayer) {
-    setTimeout(aiMove, 300);
+    setTimeout(aiMove, 400);
   }
 }
 function encodeBoard(b, player) {
@@ -105,9 +98,11 @@ function undoMove() {
   }
 }
 
+
 function aiMove() {
   const key = encodeBoard(board, currentPlayer);
   const moves = getValidMoves(board, currentPlayer);
+
   if (moves.length === 0) {
     currentPlayer *= -1;
     if (selfPlayMode || currentPlayer === aiPlayer) {
@@ -126,6 +121,7 @@ function aiMove() {
       }
     }
   }
+
   if (!move) {
     move = moves[Math.floor(Math.random() * moves.length)];
   }
@@ -136,6 +132,7 @@ function aiMove() {
   qTable[key][moveKey] += 1;
 
   saveQTable();
+
   makeMove(move[0], move[1], currentPlayer);
   aiLastMove = move;
   currentPlayer *= -1;
@@ -206,5 +203,24 @@ function checkGameOver() {
     }
     const result = b > w ? "黑子獲勝！" : b < w ? "白子獲勝！" : "平手！";
     document.getElementById("status").textContent = "遊戲結束：" + result;
+  } else {
+    document.getElementById("status").textContent = "遊戲進行中";
   }
 }
+
+// 支援玩家手機點擊 canvas 下子
+document.getElementById("board").addEventListener("click", (e) => {
+  if (currentPlayer !== playerColor || selfPlayMode) return;
+  const rect = e.target.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / (rect.width / 8));
+  const y = Math.floor((e.clientY - rect.top) / (rect.height / 8));
+  if (isValidMove(board, x, y, playerColor)) {
+    makeMove(x, y, playerColor);
+    currentPlayer *= -1;
+    drawBoard();
+    if (currentPlayer === aiPlayer) setTimeout(aiMove, 300);
+  }
+});
+
+
+
