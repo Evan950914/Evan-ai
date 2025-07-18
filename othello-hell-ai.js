@@ -1,6 +1,5 @@
 const transpositionTable = new Map();
 
-
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const size = 8;
@@ -11,6 +10,7 @@ let aiLastMove = null;
 let currentPlayer = 1;
 let aiPlayer = -1;
 let history = [];
+let gameLog = [];
 
 function deepCopy(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -24,6 +24,8 @@ function startGame(first) {
   initBoard();
   drawBoard();
   updateScores();
+  gameLog = [{ steps: [], result: null }];
+  setStatus("遊戲開始！");
   if (aiPlayer === currentPlayer) setTimeout(aiMove, 500);
 }
 
@@ -34,13 +36,14 @@ function initBoard() {
   board[3][4] = -1;
   board[4][3] = -1;
   history = [];
+  aiLastMove = null;
 }
 
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const moves = getValidMoves(board, currentPlayer);
   for (let [x, y] of moves) {
-    ctx.fillStyle = "rgba(255, 255, 0, 0.8)";
+    ctx.fillStyle = "rgba(255, 255, 0, 0.6)";
     ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
   }
   for (let y = 0; y < size; y++) {
@@ -52,11 +55,18 @@ function drawBoard() {
         ctx.arc(x * tileSize + tileSize / 2, y * tileSize + tileSize / 2, tileSize / 2.5, 0, Math.PI * 2);
         ctx.fillStyle = board[y][x] === 1 ? "black" : "white";
         ctx.fill();
+        // 畫穩定子邊框
+        if (isStableDisc(board, x, y)) {
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
       }
     }
   }
   if (aiLastMove) {
-    ctx.strokeStyle = "red";
+    ctx.strokeStyle = "blue";
     ctx.lineWidth = 3;
     ctx.strokeRect(aiLastMove[0] * tileSize, aiLastMove[1] * tileSize, tileSize, tileSize);
     ctx.lineWidth = 1;
@@ -71,6 +81,8 @@ canvas.addEventListener("click", (e) => {
     if (isValidMove(board, x, y, currentPlayer)) {
       history.push({ board: deepCopy(board), player: currentPlayer });
       makeMove(board, x, y, currentPlayer);
+      // 紀錄步驟
+      gameLog[0].steps.push({ board: deepCopy(board), player: currentPlayer, move: [x, y] });
       endTurn();
     }
   }
@@ -132,11 +144,19 @@ function endTurn() {
   if (getValidMoves(board, currentPlayer).length === 0) {
     currentPlayer *= -1;
     if (getValidMoves(board, currentPlayer).length === 0) {
-      document.getElementById("status").innerText = "遊戲結束！" + getWinner();
+      const result = getWinner();
+      setStatus("遊戲結束！" + result);
+      // 紀錄結果
+      gameLog[0].result = result;
+      saveGameLog();
       return;
+    } else {
+      setStatus(`${currentPlayer === aiPlayer ? "AI" : "玩家"} 無合法移動，跳過回合`);
     }
+  } else {
+    setStatus(`${currentPlayer === aiPlayer ? "AI" : "玩家"} 行動中`);
   }
-  if (currentPlayer === aiPlayer) setTimeout(aiMove, 500);
+  if (currentPlayer === aiPlayer) setTimeout(aiMove, 300);
 }
 
 function updateScores() {
@@ -173,10 +193,13 @@ function aiMove() {
   history.push({ board: deepCopy(board), player: aiPlayer });
   aiLastMove = move;
   makeMove(board, move[0], move[1], aiPlayer);
+  // 紀錄步驟
+  gameLog[0].steps.push({ board: deepCopy(board), player: aiPlayer, move: move });
   endTurn();
 }
 
-function evaluateBoard(board, player) {
+function evaluateBoard(bd, player) {
+  // 權重矩陣
   const weights = [
     [120, -20, 20, 5, 5, 20, -20, 120],
     [-20, -60, -10, -5, -5, -10, -60, -20],
@@ -187,104 +210,46 @@ function evaluateBoard(board, player) {
     [-20, -60, -10, -5, -5, -10, -60, -20],
     [120, -20, 20, 5, 5, 20, -20, 120]
   ];
+
+  // 穩定子計算
+  const stableCount = countStableDiscs(bd, player);
+
+  // 行動力
+  const mobility = getValidMoves(bd, player).length - getValidMoves(bd, -player).length;
+
   let score = 0;
-  let stable = 0;
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-      if (board[y][x] === player) {
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (bd[y][x] === player) {
         score += weights[y][x];
-        if ((x === 0 || x === 7) && (y === 0 || y === 7)) stable += 1;
-      } else if (board[y][x] === -player) {
+      } else if (bd[y][x] === -player) {
         score -= weights[y][x];
       }
     }
   }
-  const mobility = getValidMoves(board, player).length - getValidMoves(board, -player).length;
-  return score + 10 * mobility + 15 * stable;
+  return score + 15 * stableCount + 10 * mobility;
 }
 
-function minimax(board, depth, player, maximizingPlayer, alpha, beta) {
-  if (depth === 0) {
-    return evaluateBoard(board, maximizingPlayer);
+function minimax(bd, depth, player, maximizingPlayer, alpha, beta) {
+  // 檢查終局
+  if (depth === 0 || isGameOver(bd)) {
+    return evaluateBoard(bd, maximizingPlayer);
   }
-  const validMoves = getValidMoves(board, player);
+
+  const key = JSON.stringify(bd) + player + depth;
+  if (transpositionTable.has(key)) return transpositionTable.get(key);
+
+  const validMoves = getValidMoves(bd, player);
   if (validMoves.length === 0) {
-    return evaluateBoard(board, maximizingPlayer);
-  }
-
-  if (player === maximizingPlayer) {
-    let maxEval = -Infinity;
-    for (let [x, y] of validMoves) {
-      let newBoard = JSON.parse(JSON.stringify(board));
-      makeMove(newBoard, x, y, player);
-      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
-      maxEval = Math.max(maxEval, eval);
-      alpha = Math.max(alpha, eval);
-      if (beta <= alpha) break;
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (let [x, y] of validMoves) {
-      let newBoard = JSON.parse(JSON.stringify(board));
-      makeMove(newBoard, x, y, player);
-      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
-      minEval = Math.min(minEval, eval);
-      beta = Math.min(beta, eval);
-      if (beta <= alpha) break;
-    }
-    return minEval;
-  }
-}
-
-function getBestMove(board, player) {
-  const validMoves = getValidMoves(board, player);
-  validMoves.sort((a, b) => {
-    const w = [
-      [120, -20, 20, 5, 5, 20, -20, 120],
-      [-20, -60, -10, -5, -5, -10, -60, -20],
-      [20, -10, 15, 3, 3, 15, -10, 20],
-      [5, -5, 3, 3, 3, 3, -5, 5],
-      [5, -5, 3, 3, 3, 3, -5, 5],
-      [20, -10, 15, 3, 3, 15, -10, 20],
-      [-20, -60, -10, -5, -5, -10, -60, -20],
-      [120, -20, 20, 5, 5, 20, -20, 120]
-    ];
-    return w[b[1]][b[0]] - w[a[1]][a[0]];
-  });
-
-  let bestScore = -Infinity;
-  let bestMove = null;
-  for (let [x, y] of validMoves) {
-    let newBoard = JSON.parse(JSON.stringify(board));
-    makeMove(newBoard, x, y, player);
-    let score = minimax(newBoard, 10, -player, player, -Infinity, Infinity);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = [x, y];
-    }
-  }
-  return bestMove;
-}
-
-function undoMove() {
-  if (history.length === 0) {
-    document.getElementById("status").innerText = "無法悔棋。";
-    return;
-  }
-
-  while (history.length > 0) {
-    const last = history.pop();
-    if (last.player !== aiPlayer) {
-      board = deepCopy(last.board);
-      currentPlayer = last.player;
-      aiLastMove = null;
-      drawBoard();
-      updateScores();
-      document.getElementById("status").innerText = "悔棋成功。";
-      return;
+    // 沒有合法棋步，跳過回合或結束
+    if (getValidMoves(bd, -player).length === 0) {
+      return evaluateBoard(bd, maximizingPlayer);
+    } else {
+      const val = minimax(bd, depth, -player, maximizingPlayer, alpha, beta);
+      transpositionTable.set(key, val);
+      return val;
     }
   }
 
-  document.getElementById("status").innerText = "無法悔棋。";
-}
+  if (player ===
+
