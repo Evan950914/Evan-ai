@@ -251,5 +251,146 @@ function minimax(bd, depth, player, maximizingPlayer, alpha, beta) {
     }
   }
 
-  if (player ===
+  if (player === maximizingPlayer) {
+    let maxEval = -Infinity;
+    for (let [x, y] of validMoves) {
+      let newBoard = deepCopy(bd);
+      makeMove(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      maxEval = Math.max(maxEval, eval);
+      alpha = Math.max(alpha, eval);
+      if (beta <= alpha) break;
+    }
+    transpositionTable.set(key, maxEval);
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for (let [x, y] of validMoves) {
+      let newBoard = deepCopy(bd);
+      makeMove(newBoard, x, y, player);
+      let eval = minimax(newBoard, depth - 1, -player, maximizingPlayer, alpha, beta);
+      minEval = Math.min(minEval, eval);
+      beta = Math.min(beta, eval);
+      if (beta <= alpha) break;
+    }
+    transpositionTable.set(key, minEval);
+    return minEval;
+  }
+}
 
+function getBestMove(bd, player) {
+  const validMoves = getValidMoves(bd, player);
+
+  // 用權重排序，優先搜索高價值位置
+  const weights = [
+    [120, -20, 20, 5, 5, 20, -20, 120],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [5, -5, 3, 3, 3, 3, -5, 5],
+    [20, -10, 15, 3, 3, 15, -10, 20],
+    [-20, -60, -10, -5, -5, -10, -60, -20],
+    [120, -20, 20, 5, 5, 20, -20, 120]
+  ];
+  validMoves.sort((a, b) => weights[b[1]][b[0]] - weights[a[1]][a[0]]);
+
+  let bestScore = -Infinity;
+  let bestMove = null;
+  for (let [x, y] of validMoves) {
+    let newBoard = deepCopy(bd);
+    makeMove(newBoard, x, y, player);
+    let score = minimax(newBoard, 6, -player, player, -Infinity, Infinity); // 深度 6 可調
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = [x, y];
+    }
+  }
+  return bestMove;
+}
+
+function undoMove() {
+  if (history.length === 0) {
+    setStatus("無法悔棋。");
+    return;
+  }
+
+  while (history.length > 0) {
+    const last = history.pop();
+    if (last.player !== aiPlayer) {
+      board = deepCopy(last.board);
+      currentPlayer = last.player;
+      aiLastMove = null;
+      drawBoard();
+      updateScores();
+      setStatus("悔棋成功。");
+      return;
+    }
+  }
+  setStatus("無法悔棋。");
+}
+
+// 判斷遊戲是否結束
+function isGameOver(bd) {
+  return getValidMoves(bd, 1).length === 0 && getValidMoves(bd, -1).length === 0;
+}
+
+// 判斷穩定子：簡易檢查角落連接的同色棋子
+function isStableDisc(bd, x, y) {
+  const player = bd[y][x];
+  if (player === 0) return false;
+
+  // 只有邊角才有可能穩定子
+  if (!(x === 0 || x === 7 || y === 0 || y === 7)) return false;
+
+  // 判斷連接角落的方向是否有同色連續棋子
+  const corners = [
+    [0,0], [7,0], [0,7], [7,7]
+  ];
+
+  for (const [cx, cy] of corners) {
+    if (bd[cy][cx] === player) {
+      // 簡易判斷是否在該角落方向的連續子
+      if ((cx === 0 && x >= cx) || (cx === 7 && x <= cx)) {
+        if ((cy === 0 && y >= cy) || (cy === 7 && y <= cy)) {
+          // 簡單視為穩定子
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// 計算穩定子數量
+function countStableDiscs(bd, player) {
+  let count = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (bd[y][x] === player && isStableDisc(bd, x, y)) count++;
+    }
+  }
+  return count;
+}
+
+function setStatus(text) {
+  document.getElementById("status").innerText = text;
+}
+
+function saveGameLog() {
+  let logs = JSON.parse(localStorage.getItem("game-log") || "[]");
+  logs.unshift(gameLog[0]);
+  if(logs.length > 50) logs.pop();
+  localStorage.setItem("game-log", JSON.stringify(logs));
+}
+
+function renderHistory() {
+  const logs = JSON.parse(localStorage.getItem("game-log") || "[]");
+  const div = document.getElementById("history-log");
+  if (logs.length === 0) {
+    div.innerText = "尚無對戰紀錄。";
+    return;
+  }
+  div.innerHTML = "<h3>對戰紀錄</h3>" + logs.map((g, i) => {
+    return `<p>第 ${i + 1} 場 - 結果：${g.result}，共 ${g.steps.length} 步</p>`;
+  }).join("");
+}
