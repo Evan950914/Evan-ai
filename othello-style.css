@@ -1,18 +1,54 @@
 
 body {
-  font-family: sans-serif;
+  font-family: "Noto Sans TC", sans-serif;
   text-align: center;
   background-color: #f0e5d8;
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2 {
+  color: #3b2f2f;
+  margin-top: 20px;
+}
+
+#start-screen,
+#game-screen {
+  margin-top: 30px;
 }
 
 canvas {
   background-color: #8b5e3c;
   border: 4px solid #333;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
   margin-top: 10px;
 }
 
 button {
-  padding: 10px 20px;
+  padding: 10px 24px;
   font-size: 16px;
   margin: 10px;
+  border: none;
+  border-radius: 8px;
+  background-color: #3b2f2f;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #614a3a;
+}
+
+#status {
+  font-weight: bold;
+  margin-top: 10px;
+  color: #2d1e1e;
+  font-size: 18px;
+}
+
+p {
+  font-size: 18px;
+  color: #333;
 }
